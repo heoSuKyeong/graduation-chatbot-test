@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Category Selector</title>
+    
+</head>
+<body>
+    <h1>Category Selector</h1>
+
+    <label for="mainCategorySelect">Main Category:</label>
+    <select id="mainCategorySelect" onchange="loadSubCategories()">
+        {% for category in main_categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="subCategorySelect">Sub Category:</label>
+    <select id="subCategorySelect">
+        <option value="">-- Select a Sub Category --</option>
+    </select>
+</body>
+
+<script>
+    function loadSubCategories() {
+        var mainCategoryId = document.getElementById("mainCategorySelect").value;
+        fetch('/chatbot/get_sub_categories/' + mainCategoryId + '/')
+            .then(response => response.json())
+            .then(data => {
+                var subCategorySelect = document.getElementById("subCategorySelect");
+                subCategorySelect.innerHTML = ""; // Clear previous options
+                data.sub_categories.forEach(function(sub_category) {
+                    var option = document.createElement("option");
+                    option.value = sub_category.id;
+                    option.textContent = sub_category.name;
+                    subCategorySelect.appendChild(option);
+                });
+            });
+    }
+</script>
+</html>
