@@ -1,0 +1,12 @@
+joblib
+JPype1
+pandas
+python-dateutil
+pytorch-crf
+pytorch-pretrained-bert
+scikit-learn
+scipy
+six
+torch
+transformers
+zipp
