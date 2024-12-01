@@ -122,13 +122,16 @@ def recommend_products(request, sub_category_id):
     )
 
     # 정렬된 상품을 직렬화
-    recommendations = [
-        {
-            "product": ProductSerializer(entry["product"]).data,
-            "score": entry["score"],
-            "aspect_counts": entry["aspect_counts"]
-        }
-        for entry in sorted_products
-    ]
+    recommendations = {
+        "aspects": matching_aspects,
+        "products": [
+            {
+                "product": ProductSerializer(entry["product"]).data,
+                "score": entry["score"],
+                "aspect_counts": entry["aspect_counts"]
+            }
+            for entry in sorted_products[:5]
+        ]
+    }
 
-    return Response(recommendations[:5], status=status.HTTP_200_OK)
+    return Response(recommendations, status=status.HTTP_200_OK)
