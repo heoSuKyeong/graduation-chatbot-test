@@ -2,8 +2,8 @@ from django.http import HttpResponse, JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .serializer import MainCategorySerializer, SubCategorySerializer
-from .models import MainCategory , SubCategory
+from .serializer import *
+from .models import *
 
 def index(request):
     return HttpResponse("안녕하세요. 기본 페이지입니다.")
@@ -25,4 +25,23 @@ def get_sub_categories(request, main_category_id):
 
     sub_categories = SubCategory.objects.filter(main_category=main_category)
     serializer = SubCategorySerializer(sub_categories, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_products(request, sub_category_id):
+    try:
+        sub_category = SubCategory.objects.get(id=sub_category_id)
+    except SubCategory.DoesNotExist:
+        return Response({"error": "Sub Category not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    products = Product.objects.filter(sub_category=sub_category)
+    serializer = ProductSerializer(products, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_aspects(request):
+    aspects = Aspect.objects.all()
+    serializer = AspectSerializer(aspects, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
