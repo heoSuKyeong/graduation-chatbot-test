@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .serializer import mainCategorySerializer, subCategorySerializer
+from .serializer import MainCategorySerializer, SubCategorySerializer
 from .models import MainCategory , SubCategory
 
 def index(request):
@@ -12,7 +12,7 @@ def index(request):
 def getMainCaterogy(request):
     main_categories = MainCategory.objects.all()
     # return render(request, 'index.html', {'main_categories': main_categories})
-    serializer = mainCategorySerializer(main_categories, many=True)
+    serializer = MainCategorySerializer(main_categories, many=True)
     return Response(serializer.data)
 
 @api_view(['GET'])
