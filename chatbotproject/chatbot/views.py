@@ -1,5 +1,5 @@
-from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from .serializer import MainCategorySerializer, SubCategorySerializer
@@ -8,18 +8,21 @@ from .models import MainCategory , SubCategory
 def index(request):
     return HttpResponse("안녕하세요. 기본 페이지입니다.")
 
+
 @api_view(['GET'])
-def getMainCaterogy(request):
+def get_main_categories(request):
     main_categories = MainCategory.objects.all()
-    # return render(request, 'index.html', {'main_categories': main_categories})
     serializer = MainCategorySerializer(main_categories, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
-@api_view(['GET'])
+
+@api_view(['GET']) 
 def get_sub_categories(request, main_category_id):
-    sub_categories = SubCategory.objects.filter(main_category_id=main_category_id)
-    sub_categories_list = [{'id': sub_cat.id, 'name': sub_cat.name} for sub_cat in sub_categories]
-    return JsonResponse({'sub_categories': sub_categories_list})
+    try:
+        main_category = MainCategory.objects.get(id=main_category_id)
+    except MainCategory.DoesNotExist:
+        return Response({"error": "Main Category not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    # serializer = subCategorySerializer(sub_categories, many=True)
-    # return Response(serializer.data)
+    sub_categories = SubCategory.objects.filter(main_category=main_category)
+    serializer = SubCategorySerializer(sub_categories, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)

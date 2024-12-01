@@ -14,6 +14,11 @@ class SubCategorySerializer(serializers.ModelSerializer):
         model = SubCategory
         fields = "__all__"
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation.pop("main_category", None)
+        return representation
+
 
 class ProductSerializer(serializers.ModelSerializer):
     sub_category = SubCategorySerializer(read_only=True)
