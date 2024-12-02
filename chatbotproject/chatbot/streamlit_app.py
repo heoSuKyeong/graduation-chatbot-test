@@ -21,7 +21,7 @@ for m in st.session_state.messages:
         st.write(m["content"])
 
 # main_category 리스트 가져오기
-main_category_response = requests.get("http://127.0.0.1:8000/chatbot/")
+main_category_response = requests.get("http://127.0.0.1:8000/chatbot/api/main-categories/")
 main_categories = main_category_response.json() if main_category_response.status_code == 200 else []
 
 # main_category 버튼 생성
