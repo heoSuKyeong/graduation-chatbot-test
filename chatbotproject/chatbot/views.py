@@ -56,29 +56,42 @@ def recommend_products(request, sub_category_id):
         return Response({"error": "Sub Category not found."}, status=status.HTTP_404_NOT_FOUND)
     
     condition = request.data.get('condition', '')
-
+    
     if not condition:
         return Response({"error": "Condition text is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     absa_model = settings.ABSA_MODEL
-    results = absa_model.test(condition)    # {'편의성': {'polarity': 0, 'counts': {'긍정': 0, '부정': 7}}, '소음': {'polarity': 1, 'counts': {'긍정': 4, '부정': 0}}}
-    
-    # 분석 결과 파싱 (긍정 또는 부정에 따라 검색 조건 설정)
-    matching_aspects = []
-    aspect_polarity = {}
 
-    for aspect, data in results.items():
-        matching_aspects.append(aspect)
-        aspect_polarity[aspect] = {
-            "polarity": data["polarity"],  # 긍정(1) 또는 부정(0)
-            "counts": data["counts"]
-        }
+    matching_aspects, aspect_polarity = analyze_condition_with_absa(condition, absa_model)
 
     if not matching_aspects:
         return Response({"error": "No matching aspects found."}, status=status.HTTP_200_OK)
 
-    # Sub Category에 속한 상품 중 조건에 맞는 상품 필터링
+    # 상품 필터링 및 점수 계산
     products = Product.objects.filter(sub_category=sub_category)
+    product_scores = calculate_product_scores(products, matching_aspects, aspect_polarity)
+
+    # 상품 정렬 및 직렬화
+    recommendations = serialize_sorted_products(product_scores, matching_aspects)
+
+    return Response(recommendations, status=status.HTTP_200_OK)
+
+def analyze_condition_with_absa(condition, absa_model):
+    results = absa_model.test(condition)
+    matching_aspects = []
+    aspect_polarity = {}
+
+    # 분석 결과 파싱 (긍정 또는 부정에 따라 검색 조건 설정)
+    for aspect, data in results.items():
+        matching_aspects.append(aspect)
+        aspect_polarity[aspect] = {
+            "polarity": data["polarity"],   # 긍정(1) 또는 부정(0)
+            "counts": data["counts"]
+        }
+    return matching_aspects, aspect_polarity
+
+# 상품 필터링 및 점수 계산
+def calculate_product_scores(products, matching_aspects, aspect_polarity):
     product_scores = {}
 
     for product in products:
@@ -93,9 +106,9 @@ def recommend_products(request, sub_category_id):
                     aspect_data = aspect_polarity[review_aspect.aspect.aspect]
 
                     # 긍정/부정 가중치 계산
-                    if review_aspect.sentiment_polarity == 1:  # 긍정
+                    if review_aspect.sentiment_polarity == 1:
                         total_score += aspect_data["counts"]["긍정"]
-                    elif review_aspect.sentiment_polarity == 0:  # 부정
+                    elif review_aspect.sentiment_polarity == 0:
                         total_score += aspect_data["counts"]["부정"]
 
                     # aspect별 긍정/부정 개수 누적
@@ -112,10 +125,10 @@ def recommend_products(request, sub_category_id):
                         matching_reviews.append({
                             "review_id": review.id,
                             "aspect": review_aspect.aspect.aspect,
-                            "content": review.raw_text,  # 리뷰 내용
+                            "content": review.raw_text,
                             "sentiment": "긍정" if review_aspect.sentiment_polarity == 1 else "부정"
                         })
-                        seen_review_ids.add(review.id)   # 리뷰 ID 중복 체크
+                        seen_review_ids.add(review.id)
 
         # 리뷰 2개만 선택
         matching_reviews = matching_reviews[:2]
@@ -128,16 +141,16 @@ def recommend_products(request, sub_category_id):
                 "aspect_counts": aspect_counts,
                 "matching_reviews": matching_reviews,
             }
+    return product_scores
 
-    # 상품을 가중치 점수로 정렬
+# 상품 정렬 및 직렬화
+def serialize_sorted_products(product_scores, matching_aspects):
     sorted_products = sorted(
         product_scores.values(),
         key=lambda x: x["score"],
         reverse=True
     )
-
-    # 정렬된 상품을 직렬화
-    recommendations = {
+    return {
         "aspects": matching_aspects,
         "products": [
             {
@@ -150,7 +163,8 @@ def recommend_products(request, sub_category_id):
         ]
     }
 
-    return Response(recommendations, status=status.HTTP_200_OK)
+
+
 
 @api_view(['GET'])
 def product_aspect_ratio(request, product_id):
