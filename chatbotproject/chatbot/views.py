@@ -151,3 +151,45 @@ def recommend_products(request, sub_category_id):
     }
 
     return Response(recommendations, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def product_aspect_ratio(request, product_id):
+    try:
+        # 상품 가져오기
+        product = Product.objects.get(id=product_id)
+    except Product.DoesNotExist:
+        return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    # 상품의 리뷰와 속성 데이터 가져오기
+    aspect_data = {}
+    for review in product.reviews.all():
+        for review_aspect in review.review_aspects.all():
+            aspect_name = review_aspect.aspect.aspect
+            if aspect_name not in aspect_data:
+                aspect_data[aspect_name] = {"긍정": 0, "부정": 0, "총합": 0}
+            if review_aspect.sentiment_polarity == 1:
+                aspect_data[aspect_name]["긍정"] += 1
+            else:
+                aspect_data[aspect_name]["부정"] += 1
+            aspect_data[aspect_name]["총합"] += 1
+
+    # 속성을 리뷰 수 기준으로 정렬 후 상위 5개 선택
+    sorted_aspects = sorted(
+        aspect_data.items(),
+        key=lambda item: item[1]["총합"],
+        reverse=True
+    )[:5]
+
+    # 긍정/부정 비율 계산
+    aspect_ratios = [
+        {
+            "aspect": aspect,
+            "positive_ratio": f"{(data['긍정'] / data['총합'] * 100):.2f}" if data['총합'] > 0 else "0.00",
+            "negative_ratio": f"{(data['부정'] / data['총합'] * 100):.2f}" if data['총합'] > 0 else "0.00",
+            "total_reviews": data["총합"]
+        }
+        for aspect, data in sorted_aspects
+    ]
+
+    # 응답 반환
+    return Response({"product_id": product_id, "aspect_ratios": aspect_ratios}, status=status.HTTP_200_OK)

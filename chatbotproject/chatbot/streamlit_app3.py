@@ -42,7 +42,7 @@ products_css = """
     display: block;
     flex-direction: row;
     overflow-x: scroll;
-    overflow-y: hidden; /* 세로 스크롤을 숨기기 */
+    /* overflow-y: hidden; 세로 스크롤을 숨기기 */
     white-space: nowrap;
     height: 500px;
 }
@@ -117,6 +117,15 @@ def get_main_categories():
 def get_sub_categories(main_category_id):
     return safe_request(f"{API_BASE_URL}main-categories/{main_category_id}/sub-categories/") #.get('sub_categories', [])
 
+def fetch_aspect_ratios(product_id):
+    try:
+        response = requests.get(f"{API_BASE_URL}products/{product_id}/aspect-ratio/")
+        response.raise_for_status()
+        return response.json()  # JSON 데이터 반환
+    except requests.exceptions.RequestException as e:
+        st.error(f"API 호출 실패: {e}")
+        return {"aspects": []}  # 기본값 반환
+
 def render_main_categories():
     main_categories = get_main_categories()
     columns = st.columns(len(main_categories))
@@ -140,6 +149,7 @@ def display_recommanded_products():
         st.write("추천된 제품이 없습니다.")
         return
     print(products)
+    
     columns = st.columns(len(products))
     for i, product in enumerate(products):
         with columns[i]:
@@ -147,6 +157,31 @@ def display_recommanded_products():
                 st.image(product["product"].get("photo", ""), caption=product["product"]["name"])
                 st.text(f"출시가격: {product['product'].get('price', 0):,}원")
                 st.text(f"제조사: {product['product'].get('manufacturer', '정보 없음')} / 출시년도: {product['product'].get('release_year', '정보 없음')}")
+                st.write("### 주요 성능별 비율")
+                # API에서 데이터 가져오기
+                data = fetch_aspect_ratios(product["product"]["id"])
+                aspect_ratios = data.get("aspect_ratios", [])
+
+                if not aspect_ratios:
+                    st.write("분석 결과가 없습니다.")
+                    return
+
+                if aspect_ratios:
+                    # 긍정 비율 기준으로 정렬
+                    sorted_aspects = sorted(
+                        aspect_ratios,
+                        key=lambda x: float(x["positive_ratio"]),
+                        reverse=True
+                    )
+                    for aspect in sorted_aspects:
+                        # 문자열을 숫자로 변환 후 포맷
+                        positive_ratio = float(aspect["positive_ratio"])
+                        negative_ratio = float(aspect["negative_ratio"])
+                        st.text(f"{aspect['aspect']} - 긍정: {positive_ratio:.0f}%, 부정: {negative_ratio:.0f}%")
+                        
+                else:
+                    st.text("속성 비율 정보를 가져올 수 없습니다.")
+
                 st.button("최저가 사러가기", key=f"buy_{i}_{generate_short_id()}", on_click=on_click_buy_btn, kwargs=product["product"])
 
 def render_chat_ui():
