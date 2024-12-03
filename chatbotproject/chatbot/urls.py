@@ -8,6 +8,7 @@ urlpatterns = [
     path('sub-categories/<int:sub_category_id>/products/', views.get_products, name='get_products'),
     # path('sub-categories/<int:sub_category_id>/item/', views.get_products, name='get_products'),
     path('sub-categories/<int:sub_category_id>/recommend-products/', views.recommend_products, name='recommend_products'),
+    path('sub-categories/<int:sub_category_id>/recommend-other-products/', views.recommend_other_products, name='recommend_other_products'),
     path('aspects/', views.get_aspects, name='get_aspects'),
     path('products/<int:product_id>/aspect-ratio/', views.product_aspect_ratio, name='product_aspect_ratio'),
 ]

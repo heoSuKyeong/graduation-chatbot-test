@@ -76,6 +76,39 @@ def recommend_products(request, sub_category_id):
 
     return Response(recommendations, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+def recommend_other_products(request, sub_category_id):
+    try:
+        sub_category = SubCategory.objects.get(id=sub_category_id)
+    except SubCategory.DoesNotExist:
+        return Response({"error": "Sub Category not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    condition = request.data.get('condition', '')
+    product_name = request.data.get('product_name', '')
+    
+    if not condition:
+        return Response({"error": "Condition text is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not product_name:
+        return Response({"error": "Product Name text is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    absa_model = settings.ABSA_MODEL
+
+    matching_aspects, aspect_polarity = analyze_condition_with_absa(condition, absa_model)
+
+    if not matching_aspects:
+        return Response({"error": "No matching aspects found."}, status=status.HTTP_200_OK)
+
+    # 상품 필터링 및 점수 계산
+    products = Product.objects.filter(sub_category=sub_category)
+    product_scores = calculate_product_scores(products, matching_aspects, aspect_polarity, product_name=product_name)
+
+    # 상품 정렬 및 직렬화
+    recommendations = serialize_sorted_products(product_scores, matching_aspects)
+
+    return Response(recommendations, status=status.HTTP_200_OK)
+
+
 def analyze_condition_with_absa(condition, absa_model):
     results = absa_model.test(condition)
     matching_aspects = []
@@ -91,7 +124,11 @@ def analyze_condition_with_absa(condition, absa_model):
     return matching_aspects, aspect_polarity
 
 # 상품 필터링 및 점수 계산
-def calculate_product_scores(products, matching_aspects, aspect_polarity):
+def calculate_product_scores(products, matching_aspects, aspect_polarity, product_name=None):
+    # `product_name` 필터링 추가
+    if product_name:
+        products = products.filter(name__icontains=product_name)  # 제품 이름에 `product_name` 포함 여부로 필터링
+    
     product_scores = {}
 
     for product in products:

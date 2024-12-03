@@ -193,6 +193,8 @@ def render_chat_ui():
         render_main_categories()
     elif not st.session_state["selected_sub_category"]:
         render_sub_categories()
+    elif st.session_state.get("input_other_product", False) :
+        st.chat_input("제품명을 입력해주세요", key="product_name_input", on_submit=on_submit_input_other_product)
     elif not st.session_state["search_filters"]:
         st.chat_input("조건을 입력해주세요", key="current_input", on_submit=on_submit_search_filters)
 
@@ -208,11 +210,15 @@ def on_click_main_category_btn(main_category):
 def on_click_sub_category_btn(sub_category):
     st.session_state["selected_sub_category"] = sub_category
     st.session_state["messages"].append({"role": "user", "content": sub_category['name']})
-    st.session_state["messages"].append({"role": "assistant", "content": "원하는 조건을 입력해주세요!"})
- 
-def on_submit_search_filters():
     
+    if sub_category['name'] == '기타':
+        st.session_state["messages"].append({"role": "assistant", "content": "제품명을 입력해주세요!"})
+        st.session_state["input_other_product"] = True
+    else: 
+        st.session_state["messages"].append({"role": "assistant", "content": "원하는 조건을 입력해주세요!"})
+        # st.session_state["input_other_product"] = False
 
+def on_submit_search_filters():
     # 로딩 스피너 적용
     with st.spinner("로딩 중... 잠시만 기다려 주세요."):
 
@@ -224,12 +230,19 @@ def on_submit_search_filters():
         if not selected_sub_category:
             st.error("세부 카테고리를 먼저 선택해주세요.")
             return
-
+        
         try:
-            response = requests.post(
-                f"{API_BASE_URL}sub-categories/{selected_sub_category['id']}/recommend-products/",
-                json={"condition": user_input},
-            )
+            if st.session_state["product_name"]:
+                product_name = st.session_state["product_name"]
+                response = requests.post(
+                    f"{API_BASE_URL}sub-categories/{selected_sub_category['id']}/recommend-other-products/",
+                    json={"condition": user_input, "product_name": product_name},
+                )
+            else:
+                response = requests.post(
+                    f"{API_BASE_URL}sub-categories/{selected_sub_category['id']}/recommend-products/",
+                    json={"condition": user_input},
+                )
             response.raise_for_status()
             data = response.json()
 
@@ -253,6 +266,13 @@ def on_submit_search_filters():
                 {"role": "assistant", "content": "조건 처리 중 오류가 발생했습니다. 다시 시도해주세요."}
             )
 
+def on_submit_input_other_product():
+    product_name = st.session_state["product_name_input"]
+    st.session_state["product_name"] = product_name
+    st.session_state["messages"].append({"role": "user", "content": product_name})
+    st.session_state["messages"].append({"role": "assistant", "content": "원하는 조건을 입력해주세요!"})
+    st.session_state["input_other_product"] = False
+
 # 메인 함수
 def main():
      # Streamlit 페이지 설정
@@ -267,6 +287,8 @@ def main():
         ]
         st.session_state["selected_main_category"] = None
         st.session_state["selected_sub_category"] = None
+        st.session_state["input_other_product"] = None
+        st.session_state["product_name"] = None
         st.session_state["search_filters"] = None
     
     render_chat_ui()
