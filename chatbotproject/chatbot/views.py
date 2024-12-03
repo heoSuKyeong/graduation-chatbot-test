@@ -84,6 +84,8 @@ def recommend_products(request, sub_category_id):
     for product in products:
         total_score = 0
         aspect_counts = {}
+        matching_reviews = []
+        seen_review_ids = set()
 
         for review in product.reviews.all():
             for review_aspect in review.review_aspects.all():
@@ -105,13 +107,26 @@ def recommend_products(request, sub_category_id):
                     aspect_counts[review_aspect.aspect.aspect]["긍정"] += aspect_data["counts"]["긍정"]
                     aspect_counts[review_aspect.aspect.aspect]["부정"] += aspect_data["counts"]["부정"]
 
+                    # 관련 리뷰 저장
+                    if review_aspect.sentiment_polarity == aspect_data["polarity"] and review.id not in seen_review_ids:
+                        matching_reviews.append({
+                            "review_id": review.id,
+                            "aspect": review_aspect.aspect.aspect,
+                            "content": review.raw_text,  # 리뷰 내용
+                            "sentiment": "긍정" if review_aspect.sentiment_polarity == 1 else "부정"
+                        })
+                        seen_review_ids.add(review.id)   # 리뷰 ID 중복 체크
+
+        # 리뷰 2개만 선택
+        matching_reviews = matching_reviews[:2]
 
         # 상품별 총 점수 저장
         if total_score > 0:
             product_scores[product.id] = {
                 "product": product,
                 "score": total_score,
-                "aspect_counts": aspect_counts
+                "aspect_counts": aspect_counts,
+                "matching_reviews": matching_reviews,
             }
 
     # 상품을 가중치 점수로 정렬
@@ -128,7 +143,8 @@ def recommend_products(request, sub_category_id):
             {
                 "product": ProductSerializer(entry["product"]).data,
                 "score": entry["score"],
-                "aspect_counts": entry["aspect_counts"]
+                "aspect_counts": entry["aspect_counts"],
+                "matching_reviews": entry["matching_reviews"],
             }
             for entry in sorted_products[:5]
         ]
