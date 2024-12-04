@@ -80,7 +80,7 @@ WSGI_APPLICATION = 'chatbotproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'chatbot2',
+        'NAME': 'chatbot',
         'USER' : 'root',
         'PASSWORD' : '1234', # 설정한 비밀번호로 적어주면 된다.
         'HOST' : '127.0.0.1',

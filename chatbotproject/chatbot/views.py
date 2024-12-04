@@ -56,45 +56,12 @@ def recommend_products(request, sub_category_id):
         return Response({"error": "Sub Category not found."}, status=status.HTTP_404_NOT_FOUND)
     
     condition = request.data.get('condition', '')
-    
-    if not condition:
-        return Response({"error": "Condition text is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-    absa_model = settings.ABSA_MODEL
-
-    matching_aspects, aspect_polarity = analyze_condition_with_absa(condition, absa_model)
-
-    if not matching_aspects:
-        return Response({"error": "No matching aspects found."}, status=status.HTTP_200_OK)
-
-    # 상품 필터링 및 점수 계산
-    products = Product.objects.filter(sub_category=sub_category)
-    product_scores = calculate_product_scores(products, matching_aspects, aspect_polarity)
-
-    # 상품 정렬 및 직렬화
-    recommendations = serialize_sorted_products(product_scores, matching_aspects)
-
-    return Response(recommendations, status=status.HTTP_200_OK)
-
-@api_view(['POST'])
-def recommend_other_products(request, sub_category_id):
-    try:
-        sub_category = SubCategory.objects.get(id=sub_category_id)
-    except SubCategory.DoesNotExist:
-        return Response({"error": "Sub Category not found."}, status=status.HTTP_404_NOT_FOUND)
-    
-    condition = request.data.get('condition', '')
     product_name = request.data.get('product_name', '')
     
     if not condition:
         return Response({"error": "Condition text is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not product_name:
-        return Response({"error": "Product Name text is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-    absa_model = settings.ABSA_MODEL
-
-    matching_aspects, aspect_polarity = analyze_condition_with_absa(condition, absa_model)
+    matching_aspects, aspect_polarity = analyze_condition_with_absa(condition)
 
     if not matching_aspects:
         return Response({"error": "No matching aspects found."}, status=status.HTTP_200_OK)
@@ -109,8 +76,8 @@ def recommend_other_products(request, sub_category_id):
     return Response(recommendations, status=status.HTTP_200_OK)
 
 
-def analyze_condition_with_absa(condition, absa_model):
-    results = absa_model.test(condition)
+def analyze_condition_with_absa(condition):
+    results = settings.ABSA_MODEL.test(condition)
     matching_aspects = []
     aspect_polarity = {}
 
@@ -122,6 +89,7 @@ def analyze_condition_with_absa(condition, absa_model):
             "counts": data["counts"]
         }
     return matching_aspects, aspect_polarity
+
 
 # 상품 필터링 및 점수 계산
 def calculate_product_scores(products, matching_aspects, aspect_polarity, product_name=None):
@@ -180,6 +148,7 @@ def calculate_product_scores(products, matching_aspects, aspect_polarity, produc
             }
     return product_scores
 
+
 # 상품 정렬 및 직렬화
 def serialize_sorted_products(product_scores, matching_aspects):
     sorted_products = sorted(
@@ -199,8 +168,6 @@ def serialize_sorted_products(product_scores, matching_aspects):
             for entry in sorted_products[:5]
         ]
     }
-
-
 
 
 @api_view(['GET'])
