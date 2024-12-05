@@ -71,7 +71,7 @@ def recommend_products(request, sub_category_id):
     product_scores = calculate_product_scores(products, matching_aspects, aspect_polarity, product_name=product_name)
 
     # 상품 정렬 및 직렬화
-    recommendations = serialize_sorted_products(product_scores, matching_aspects)
+    recommendations = serialize_sorted_products(product_scores, matching_aspects, aspect_polarity)
 
     return Response(recommendations, status=status.HTTP_200_OK)
 
@@ -102,8 +102,7 @@ def calculate_product_scores(products, matching_aspects, aspect_polarity, produc
     for product in products:
         total_score = 0
         aspect_counts = {}
-        matching_reviews = []
-        seen_review_ids = set()
+        aspect_reviews = {}
 
         for review in product.reviews.all():
             for review_aspect in review.review_aspects.all():
@@ -124,20 +123,24 @@ def calculate_product_scores(products, matching_aspects, aspect_polarity, produc
                         }
                     aspect_counts[review_aspect.aspect.aspect]["긍정"] += aspect_data["counts"]["긍정"]
                     aspect_counts[review_aspect.aspect.aspect]["부정"] += aspect_data["counts"]["부정"]
+                    
+                    if review_aspect.aspect.id not in aspect_reviews:
+                        aspect_reviews[review_aspect.aspect.id] = {
+                            "aspect_id": review_aspect.aspect.id,
+                            "aspect_name": review_aspect.aspect.aspect,
+                            "reviews": []
+                        }
 
-                    # 관련 리뷰 저장
-                    if review_aspect.sentiment_polarity == aspect_data["polarity"] and review.id not in seen_review_ids:
-                        matching_reviews.append({
-                            "review_id": review.id,
-                            "aspect": review_aspect.aspect.aspect,
-                            "content": review.raw_text,
-                            "sentiment": "긍정" if review_aspect.sentiment_polarity == 1 else "부정"
-                        })
-                        seen_review_ids.add(review.id)
+                    # 리뷰 추가
+                    aspect_reviews[review_aspect.aspect.id]["reviews"].append({
+                        "review_id": review.id,
+                        "raw_text": review.raw_text,  # 리뷰 내용
+                        "sentiment_polarity": review_aspect.sentiment_polarity  # 긍정(1) 또는 부정(0)
+                    })
 
         # 리뷰 2개만 선택
-        matching_reviews = matching_reviews[:2]
-
+        # matching_reviews = matching_reviews[:2]
+        matching_reviews = list(aspect_reviews.values())
         # 상품별 총 점수 저장
         if total_score > 0:
             product_scores[product.id] = {
@@ -150,14 +153,17 @@ def calculate_product_scores(products, matching_aspects, aspect_polarity, produc
 
 
 # 상품 정렬 및 직렬화
-def serialize_sorted_products(product_scores, matching_aspects):
+def serialize_sorted_products(product_scores, matching_aspects, aspect_polarity):
     sorted_products = sorted(
         product_scores.values(),
         key=lambda x: x["score"],
         reverse=True
     )
     return {
-        "aspects": matching_aspects,
+        "aspects": {
+            aspect: "긍정" if aspect_polarity[aspect]["polarity"] == 1 else "부정"
+            for aspect in matching_aspects
+        },
         "products": [
             {
                 "product": ProductSerializer(entry["product"]).data,
