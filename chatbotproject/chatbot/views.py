@@ -109,13 +109,21 @@ def calculate_product_scores(products, matching_aspects, aspect_polarity, produc
             for review_aspect in review.review_aspects.all():
                 if review_aspect.aspect.aspect in matching_aspects:
                     aspect_data = aspect_polarity[review_aspect.aspect.aspect]
-                    
                     # 긍정/부정 가중치 계산
+                    # print("aspect_data", aspect_data)
+                    
+                    '''
                     if review_aspect.sentiment_polarity == 1:
                         total_score += aspect_data["counts"]["긍정"]
                     elif review_aspect.sentiment_polarity == -1:
                         total_score += aspect_data["counts"]["부정"]
-
+                    '''
+                    expected_polarity = 1 if aspect_data["polarity"] == 1 else -1 
+                    if review_aspect.sentiment_polarity == expected_polarity:
+                        total_score += 1
+                    else :
+                        total_score -= 1
+                    
                     # aspect별 긍정/부정 개수 누적
                     if review_aspect.aspect.aspect not in aspect_counts:
                         aspect_counts[review_aspect.aspect.aspect] = {
@@ -133,7 +141,7 @@ def calculate_product_scores(products, matching_aspects, aspect_polarity, produc
                             "reviews": []
                         }
 
-                    expected_polarity = 1 if aspect_data["polarity"] == 1 else -1  # 부정은 -1로 변환
+                    # expected_polarity = 1 if aspect_data["polarity"] == 1 else -1  # 부정은 -1로 변환
                     if (
                         review.id not in seen_review_ids and 
                         review_aspect.sentiment_polarity == expected_polarity  # 조건에 맞는 리뷰
